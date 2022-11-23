@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import ImageGallery from './ImageGallery/ImageGallery';
 import Searchbar from './Searchbar/Searchbar';
 import Modal from './Modal/Modal';
@@ -8,104 +8,71 @@ import { getImages } from '../services/api';
 
 const LOADER_TIME_TO_SHOW = 1000;
 
-export default class App extends Component {
-  constructor() {
-    super();
+export default function App() {
+  const [images, setImages] = useState([]);
+  const [displayedImage, setDisplayedImage] = useState({});
+  const [page, setPage] = useState(1);
+  const [showLoader, setShowLoader] = useState(false);
+  const [showLoadMoreBtn, setShowLoadMoreBtn] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(``);
+  const showModal = !!displayedImage.id;
 
-    this.state = {
-      images: [],
-      displayedImage: {},
-      page: 1,
-      showLoader: false,
-      showLoadMoreBtn: false,
-      searchTerm: ``,
-    };
-
-    this.handleSearchFormSubmit = this.handleSearchFormSubmit.bind(this);
-    this.handleGalleryItemClick = this.handleGalleryItemClick.bind(this);
-    this.closeModal = this.closeModal.bind(this);
-    this.getImages = this.updateImageList.bind(this);
-    this.handleLoadMoreBtnClick = this.handleLoadMoreBtnClick.bind(this);
-  }
-
-  componentDidMount() {
-    const { images, page } = this.state;
-    if (!images.length) {
-      this.updateImageList(``, page);
-    }
-  }
-
-  handleSearchFormSubmit(values) {
-    const { page, searchTerm } = this.state;
-    const newSearchTerm = values.searchTerm || ``;
-
-    if (searchTerm === newSearchTerm) {
-      this.updateImageList(newSearchTerm, page + 1, true);
-    } else {
-      this.updateImageList(newSearchTerm, 1);
-    }
-  }
-
-  handleGalleryItemClick(image) {
-    this.setState({ displayedImage: image });
-  }
-
-  handleLoadMoreBtnClick() {
-    const { searchTerm, page } = this.state;
-
-    this.updateImageList(searchTerm, page + 1, true);
-  }
-
-  closeModal() {
-    if (this.state.displayedImage.id) {
-      this.setState({ displayedImage: {} });
-    }
-  }
-
-  showLoader() {
-    this.setState({ showLoader: true });
-  }
-
-  hideLoader() {
-    this.setState({ showLoader: false });
-  }
-
-  updateImageList(searchTerm, page, append) {
-    this.showLoader();
-
+  const updateImageList = useCallback((searchTerm, page, append) => {
+    setShowLoader(true);
     setTimeout(() => {
       getImages(searchTerm, page).then(x => {
-        this.hideLoader();
-        this.setState(prev => ({
-          searchTerm: searchTerm,
-          images: append ? [...prev.images, ...x.data.hits] : x.data.hits,
-          showLoadMoreBtn: x.data.total >= this.state.images.length,
-          page: page,
-        }));
+        setShowLoader(false);
+        setSearchTerm(searchTerm);
+        setImages(prev => {
+          const images = append ? [...prev, ...x.data.hits] : x.data.hits;
+          setShowLoadMoreBtn(x.data.total >= images.length);
+          return images;
+        });
+        setPage(page);
       });
     }, LOADER_TIME_TO_SHOW);
-  }
+  }, []);
 
-  render() {
-    const { images, displayedImage, showLoader, showLoadMoreBtn } = this.state;
-    const showModal = !!displayedImage.id;
+  useEffect(() => {
+    if (!images.length) {
+      updateImageList(``, page);
+    }
+  }, [images, page, updateImageList]);
 
-    return (
-      <>
-        <Searchbar onSubmit={this.handleSearchFormSubmit} />
-        <ImageGallery
-          images={images}
-          onItemClick={this.handleGalleryItemClick}
-        />
-        <Button show={showLoadMoreBtn} onClick={this.handleLoadMoreBtnClick} />
-        <Modal
-          image={displayedImage}
-          show={showModal}
-          onEscPress={this.closeModal}
-          onOutModalClick={this.closeModal}
-        />
-        <Loader show={showLoader} />
-      </>
-    );
-  }
+  const handleSearchFormSubmit = useCallback(
+    values => {
+      const newSearchTerm = values.searchTerm || ``;
+
+      if (searchTerm === newSearchTerm) {
+        updateImageList(newSearchTerm, page + 1, true);
+      } else {
+        updateImageList(newSearchTerm, 1);
+      }
+    },
+    [searchTerm, page, updateImageList]
+  );
+  const handleImageGalleryItemClick = useCallback(
+    image => setDisplayedImage(image),
+    []
+  );
+  const handleLoadMoreButtonClick = useCallback(
+    () => updateImageList(searchTerm, page + 1, true),
+    [searchTerm, page, updateImageList]
+  );
+  const closeModal = useCallback(() => setDisplayedImage({}), []);
+
+  return (
+    <>
+      <Searchbar onSubmit={handleSearchFormSubmit} />
+      <ImageGallery images={images} onItemClick={handleImageGalleryItemClick} />
+      <Button show={showLoadMoreBtn} onClick={handleLoadMoreButtonClick} />
+      <Modal
+        image={displayedImage}
+        show={showModal}
+        onEscPress={closeModal}
+        onOutModalClick={closeModal}
+      />
+      <Loader show={showLoader} />
+    </>
+  );
 }

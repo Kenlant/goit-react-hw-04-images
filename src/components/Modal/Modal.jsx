@@ -1,57 +1,44 @@
-import { Component } from 'react';
+import { useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import styles from './Modal.module.css';
 
-export default class Modal extends Component {
-  constructor() {
-    super();
+export default function Modal({ image, show, onOutModalClick, onEscPress }) {
+  const handleEscPress = useCallback(
+    evt => {
+      if (evt.key === `Escape`) {
+        onEscPress();
+      }
+    },
+    [onEscPress]
+  );
 
-    this.handleEscPress = this.handleEscPress.bind(this);
-    this.handleModalClick = this.handleModalClick.bind(this);
-  }
-
-  handleEscPress(evt) {
-    const { onEscPress } = this.props;
-
-    if (evt.key === `Escape`) {
-      onEscPress();
-    }
-  }
-
-  handleModalClick(evt) {
-    const { onOutModalClick } = this.props;
+  const handleModalClick = evt => {
     if (evt.target.classList.contains(styles.Overlay)) {
       onOutModalClick();
     }
-  }
+  };
 
-  componentDidMount() {
-    window.addEventListener(`keydown`, this.handleEscPress);
-  }
+  useEffect(() => {
+    window.addEventListener(`keydown`, handleEscPress);
 
-  componentWillUnmount() {
-    window.removeEventListener(`keydown`, this.handleEscPress);
-  }
+    return () => window.removeEventListener(`keydown`, handleEscPress);
+  }, [handleEscPress]);
 
-  render() {
-    const { image, show } = this.props;
-
-    return (
-      <>
-        {show && (
-          <div
-            className={styles.Overlay}
-            onKeyDown={this.handleEscPress}
-            onClick={this.handleModalClick}
-          >
-            <div className={styles.Modal}>
-              <img src={image.largeImageURL} alt={image.tags} />
-            </div>
+  return (
+    <>
+      {show && (
+        <div
+          className={styles.Overlay}
+          onKeyDown={handleEscPress}
+          onClick={handleModalClick}
+        >
+          <div className={styles.Modal}>
+            <img src={image.largeImageURL} alt={image.tags} />
           </div>
-        )}
-      </>
-    );
-  }
+        </div>
+      )}
+    </>
+  );
 }
 
 Modal.propTypes = {
